@@ -1,0 +1,11 @@
+cd bcasid
+make
+su
+./bcasid >/etc/bcasid.inf
+exit
+
+cd ../libyakisoba
+make
+su
+make install
+exit

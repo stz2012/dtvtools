@@ -1,0 +1,5 @@
+You must install some files from "Oishii YAKISOBA-SAUCE" in this directory.
+
+Required files are follows:
+Crypto.cpp  Decoder-ECM.cpp  Global.h  Keys.h      Keyset.h
+Crypto.h    Decoder.h        Keys.cpp  Keyset.cpp
