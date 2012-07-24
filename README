@@ -9,3 +9,21 @@ make
 su
 make install
 exit
+
+cd ../libarib25
+make
+su
+make install
+exit
+
+cd ../recfriio
+make
+su
+cp recfriio /usr/local/bin/
+exit
+
+cd ../recfsusb2n
+make
+su
+cp recfsusb2n /usr/local/bin/
+exit
