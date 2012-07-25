@@ -49,17 +49,18 @@ void usage(char *argv[])
 {
 	std::cerr << "usage: " << argv[0]
 #ifdef B25
-		<< " [--b25 [--round N] [--strip] [--EMM]]"
+		<< " [--b25 [--round N] [--strip] [--EMM] [--sync]]"
 #endif /* defined(B25) */
 #ifdef HDUS
 		<< " [--hdus]"
 		<< " [--hdp]"
 #endif /* defined(HDUS) */
+		<< " [--lockfile lock]"
+		<< " [--lnb]"
 #ifdef UDP
 		<< " [--udp ip [--port N]]"
 #endif /* defined(UDP) */
-		<< " [--lockfile lock] [--sid SID1,SID2]"
-		<< " [--lnb]"
+		<< " [--sid SID1,SID2]"
 		<< " channel recsec destfile" << std::endl;
 	std::cerr << "Channels:" << std::endl;
 	std::cerr << "  13 - 62 : UHF13 - UHF62" << std::endl;
@@ -108,9 +109,20 @@ struct Args {
 	int round;
 	bool strip;
 	bool emm;
+	bool sync;
 #endif /* defined(B25) */
+#ifdef HDUS
+	bool use_hdus;
+	bool use_hdp;
+#endif /* defined(HDUS) */
 	char* lockfile;
 	bool lnb;
+#ifdef UDP
+	std::string ip;
+	int port;
+#endif /* defined(UDP) */
+	bool splitter;
+	char *sid_list;
 	bool stdout;
 	TunerType type;
 	BandType band;
@@ -118,12 +130,6 @@ struct Args {
 	bool forever;
 	int recsec;
 	char* destfile;
-#ifdef UDP
-	std::string ip;
-	int port;
-#endif /* defined(UDP) */
-	bool splitter;
-	char *sid_list;
 };
 
 /**
@@ -138,9 +144,20 @@ parseOption(int argc, char *argv[])
 		4,
 		false,
 		false,
+		false,
 #endif /* defined(B25) */
+#ifdef HDUS
+		false,
+		false,
+#endif /* defined(HDUS) */
 		NULL,
 		false,
+#ifdef UDP
+		"",
+		UDP_PORT,
+#endif /* defined(UDP) */
+		false,
+		NULL,
 		false,
 		TUNER_FRIIO_WHITE,
 		BAND_UHF,
@@ -148,24 +165,11 @@ parseOption(int argc, char *argv[])
 		false,
 		0,
 		NULL,
-#ifdef UDP
-		"",
-		UDP_PORT,
-#endif /* defined(UDP) */
-		false,
-		NULL,
 	};
-
-#ifdef HDUS
-	bool use_hdus = false;
-	bool use_hdp = false;
-#endif /* defined(HDUS) */
 
 	while (1) {
 		int option_index = 0;
 		static option long_options[] = {
-			{ "lockfile", 1, NULL, 'l' }, 
-			{ "lnb", 0, NULL, 'n' }, 
 #ifdef B25
 			{ "b25",      0, NULL, 'b' },
 			{ "B25",      0, NULL, 'b' },
@@ -173,36 +177,36 @@ parseOption(int argc, char *argv[])
 			{ "strip",    0, NULL, 's' },
 			{ "EMM",      0, NULL, 'm' },
 			{ "emm",      0, NULL, 'm' },
+			{ "sync",     0, NULL, 'S' },
 #endif /* defined(B25) */
 #ifdef HDUS
-			{ "hdus",      0, NULL, 'h' },
-			{ "hdp",       0, NULL, 'd' },
+			{ "hdus",     0, NULL, 'h' },
+			{ "hdp",      0, NULL, 'd' },
 #endif /* defined(HDUS) */
+			{ "lockfile", 1, NULL, 'l' },
+			{ "lnb",      0, NULL, 'n' },
 #ifdef UDP
-			{ "udp",       1, NULL, 'u' },
-			{ "port",      1, NULL, 'p' },
+			{ "udp",      1, NULL, 'u' },
+			{ "port",     1, NULL, 'p' },
 #endif /* defined(UDP) */
-			{ "sid",      1, NULL, 'i'},
-			{ 0,     0, NULL, 0   }
+			{ "sid",      1, NULL, 'i' },
+			{ 0,          0, NULL, 0   }
 		};
 		
 		int r = getopt_long(argc, argv,
 #ifdef B25
-		                    "bsmr:"
+		                    "br:smS"
 #endif /* defined(B25) */
-		                    "l:",
+#ifdef UDP
+		                    "u:p:"
+#endif /* defined(B25) */
+		                    "l:i:",
 		                    long_options, &option_index);
 		if (r < 0) {
 			break;
 		}
 		
 		switch (r) {
-			case 'l':
-				args.lockfile = optarg;
-				break;
-			case 'n':
-				args.lnb = true;
-				break;
 #ifdef B25
 			case 'b':
 				args.b25 = true;
@@ -216,15 +220,24 @@ parseOption(int argc, char *argv[])
 			case 'm':
 				args.emm = true;
 				break;
+			case 'S':
+				args.sync = true;
+				break;
 #endif /* defined(B25) */
 #ifdef HDUS
 			case 'h':
-				use_hdus = true;
+				args.use_hdus = true;
 				break;
 			case 'd':
-				use_hdp = true;
+				args.use_hdp = true;
 				break;
 #endif /* defined(HDUS) */
+			case 'l':
+				args.lockfile = optarg;
+				break;
+			case 'n':
+				args.lnb = true;
+				break;
 #ifdef UDP
 			case 'u':
 				args.ip = optarg;
@@ -263,7 +276,7 @@ parseOption(int argc, char *argv[])
 #ifdef HDUS
 		case 'K':
 		case 'k':
-			if( use_hdus )
+			if( args.use_hdus )
 				args.type = TUNER_HDUS;
 			else
 				args.type = TUNER_HDP;
@@ -273,9 +286,9 @@ parseOption(int argc, char *argv[])
 #endif 
 		default:
 #ifdef HDUS
-			if( use_hdus )
+			if( args.use_hdus )
 				args.type = TUNER_HDUS;
-			else if( use_hdp )
+			else if( args.use_hdp )
 				args.type = TUNER_HDP;
 			else
 				args.type = TUNER_FRIIO_WHITE;
@@ -520,7 +533,7 @@ main(int argc, char *argv[])
 					f_b25_sync = 1;
 					buf = b25buf;
 				} catch (b25_error& e) {
-					if( f_b25_sync == 0 ){
+					if( f_b25_sync == 0 && args.sync ){
 						log << "Wait for B25 sync" << std::endl;
 						continue;
 					}
