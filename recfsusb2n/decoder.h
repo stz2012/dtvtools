@@ -2,8 +2,8 @@
 #ifndef _DECODER_H_
 #define _DECODER_H_
 
-#include "./arib25/arib_std_b25.h"
-#include "./arib25/b_cas_card.h"
+#include "arib25/arib_std_b25.h"
+#include "arib25/b_cas_card.h"
 
 #define TRUE	1
 #define FALSE	0
