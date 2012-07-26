@@ -21,7 +21,7 @@ endif
 DIST     = .
 CC       = gcc
 CXX      = g++
-CXXFLAGS = -O2 -g -Wall -pthread -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 $(B25) $(HDUS) $(UDP) `pkg-config --cflags glib-2.0` -I /usr/local/include/
+CXXFLAGS = -O2 -march=native -g -Wall -pthread -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 $(B25) $(HDUS) $(UDP) `pkg-config --cflags glib-2.0` -I /usr/local/include/
 LDFLAGS ?= -L /usr/local/lib/
 
 OBJS   = recfriio.o usbops.o error.o IoThread.o Recordable.o AbstractFriio.o FriioWhite.o FriioBlack.o FriioWhiteWrapper.o FriioExpress.o tssplitter_lite.o $(B25_OBJS) $(HDUS_OBJS) $(UDP_OBJS)
