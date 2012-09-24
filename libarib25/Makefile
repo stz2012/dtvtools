@@ -6,9 +6,11 @@ VER = $(MAJOR).$(MINOR).$(REVISION)
 
 DEST_HEADER = $(PREFIX)/include/arib25
 
-CC     = gcc
-CXX    = g++
-CFLAGS = -O2 -g -Wall -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -I /usr/local/include/
+CC  = gcc
+CXX = g++
+CFLAGS   = -O2 -g -fPIC
+CXXFLAGS = -O2 -g -fPIC
+CPPFLAGS = -Wall -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -I /usr/local/include/
 
 LIBS = -lm -lyakisoba
 LDFLAGS ?= -L /usr/local/lib/
