@@ -47,7 +47,7 @@ static s32 DecryptECM(const ECM_t *ECM, u32 Size, u8 *Output, u8 *Key)
 s32 BCAS::Decoder::DecodeECM(const u8 *Payload, u32 Size, u8 *Keys, u8 *Nanos)
 {
 	u8 Plaintext[256];
-	u8 Key[8];
+	u8 Key[16];
 	u8 MAC[4];
 
 	if (Payload == NULL || Size < sizeof(ECM_t) + sizeof(MAC_t))
