@@ -1,29 +1,24 @@
 cd bcasid
 make
-su
-./bcasid >/etc/bcasid.inf
+sudo ./bcasid >/etc/bcasid.inf
 exit
 
 cd ../libyakisoba
 make
-su
-make install
+sudo make install
 exit
 
 cd ../libarib25
 make
-su
-make install
+sudo make install
 exit
 
 cd ../recfriio
 make
-su
-cp recfriio /usr/local/bin/
+sudo make install
 exit
 
 cd ../recfsusb2n
 make
-su
-cp recfsusb2n /usr/local/bin/
+sudo make install
 exit
