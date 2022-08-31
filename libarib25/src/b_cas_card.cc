@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <yakisoba/Global.h>
@@ -18,26 +19,31 @@ typedef struct {
 	long               card;
 
 	B_CAS_INIT_STATUS  stat;
-	
+
+	B_CAS_ID           id;	
 } B_CAS_CARD_PRIVATE_DATA;
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  constant values
  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 static uint8_t BCAS_SYSTEM_KEY[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    0x36, 0x31, 0x04, 0x66, 0x4b, 0x17, 0xea, 0x5c,
+    0x32, 0xdf, 0x9c, 0xf5, 0xc4, 0xc3, 0x6c, 0x1b,
+    0xec, 0x99, 0x39, 0x21, 0x68, 0x9d, 0x4b, 0xb7,
+    0xb7, 0x4e, 0x40, 0x84, 0x0d, 0x2e, 0x7d, 0x98
 };
 
 static uint8_t BCAS_INIT_CBC[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    0xfe, 0x27, 0x19, 0x99, 0x19, 0x69, 0x09, 0x11
 };
 
 static int64_t BCAS_CARD_ID = 0x0000000000;
 
-static int32_t BCAS_CA_SYSTEM_ID = 0x0000;
+static uint8_t BCAS_CARD_ID_GEN[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+static int32_t BCAS_CA_SYSTEM_ID = 0x0005;
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  function prottypes (interface method)
@@ -49,7 +55,14 @@ static int get_id_b_cas_card(void *bcas, B_CAS_ID *dst);
 static int get_pwr_on_ctrl_b_cas_card(void *bcas, B_CAS_PWR_ON_CTRL_INFO *dst);
 static int proc_ecm_b_cas_card(void *bcas, B_CAS_ECM_RESULT *dst, uint8_t *src, int len);
 static int proc_emm_b_cas_card(void *bcas, uint8_t *src, int len);
+
+/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ function prottypes (private method)
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+static B_CAS_CARD_PRIVATE_DATA *private_data(void *bcas);
+static void teardown(B_CAS_CARD_PRIVATE_DATA *prv);
 static int init_bcas_param(void);
+static int64_t load_be_uint48(uint8_t *p);
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  global function implementation
@@ -84,12 +97,6 @@ B_CAS_CARD *create_b_cas_card()
 
 	return r;
 }
-
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- function prottypes (private method)
- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
-static B_CAS_CARD_PRIVATE_DATA *private_data(void *bcas);
-static void teardown(B_CAS_CARD_PRIVATE_DATA *prv);
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  interface method implementation
@@ -163,7 +170,9 @@ static int get_id_b_cas_card(void *bcas, B_CAS_ID *dst)
 		return B_CAS_CARD_ERROR_NOT_INITIALIZED;
 	}
 
-    memset(dst, 0, sizeof(B_CAS_ID));
+	prv->id.data[0] = load_be_uint48(BCAS_CARD_ID_GEN);
+	prv->id.count = 1;
+	memcpy(dst, &(prv->id), sizeof(B_CAS_ID));
 
 	return 0;
 }
@@ -258,86 +267,37 @@ static void teardown(B_CAS_CARD_PRIVATE_DATA *prv)
 
 static int init_bcas_param(void)
 {
-	static const char *init_file_path[] = {
-		"bcasid.inf",
-		"~/.bcas/bcasid.inf",
-		"/etc/bcasid.inf",
-		"/usr/local/etc/bcasid.inf",
-		"/usr/share/bcas/bcasid.inf",
-		"/lib/bcas/bcasid.inf",
-		"/usr/lib/bcas/bcasid.inf",
-		"/usr/local/lib/bcas/bcasid.inf",
-		"/usr/local/share/bcas/bcasid.inf",
-		NULL
-	};
-	char buffer[256];
-	int i, p;
-	int f_init_card_id, f_init_ca_system_id, f_init_cbc, f_init_system_key;
-	FILE *fp;
-	
-	i = p = f_init_card_id = f_init_ca_system_id = f_init_cbc = f_init_system_key = 0;
-	
-	/* find bcasid.inf */
-	while( init_file_path[p] != NULL ) {
-		if( access( init_file_path[p], R_OK ) == 0 ) break;
-		p++;
-	}
-	if( init_file_path[p] == NULL ) {
-		fprintf(stderr, "Cant find inf\n");
-		return -1;
-	}
-	/* read bcasid.inf */
-	fp = fopen( init_file_path[p] , "r" );
-	if( fp == NULL ) return -1;
-	
-	while( fgets( buffer, 256, fp) != NULL ) {
-		char *valp = strchr( buffer, '=' );
-		if( valp == NULL ) continue;
-		*valp = '\0';
-		valp++;
-		
-		char *lp = strchr( valp, '\n' );
-		if( lp != NULL ) *lp = '\0';
-		
-		/* card_id */
-		if( strcmp( buffer, "card_id" ) == 0 ) {
-			if( sscanf( valp, "0x%llx", &(BCAS_CARD_ID) ) == 0 ) break;
-			f_init_card_id = 1;
-		}
-		/* ca_system_id */
-		else if( strcmp( buffer, "ca_system_id" ) == 0 ) {
-			if( sscanf( valp, "0x%02x",  &(BCAS_CA_SYSTEM_ID) ) == 0 ) break;
-			f_init_ca_system_id = 1;
-		}
-		/* init_cbc[8] */
-		else if( strcmp( buffer, "init_cbc" ) == 0 ) {
-			for( i = 0; i < 8; i++ ) {
-				int value;
-				char *cp = strchr( valp, ',' );
-				if( cp != NULL ) *cp = '\0';
-				if( sscanf( valp, "0x%02x", &value ) == 0 ) break;
-				BCAS_INIT_CBC[i] = 0xFF & value;
-				valp = cp + 1;
-			}
-			if( i < 8 ) break;
-			f_init_cbc = 1;
-		}
-		/* system_key[32] */
-		else if( strcmp( buffer, "system_key" ) == 0 ) {
-			for( i = 0; i < 32; i++ ) {
-				int value;
-				char *cp = strchr( valp, ',' );
-				if( cp != NULL ) *cp = '\0';
-				if( sscanf( valp, "0x%02x",  &value ) == 0 ) break;
-				BCAS_SYSTEM_KEY[i] = 0xFF & value;
-				valp = cp + 1;
-			}
-			if( i < 32 ) break;
-			f_init_system_key = 1;
-		}
-	}
-	fclose(fp);
-	if( f_init_card_id && f_init_ca_system_id && f_init_cbc && f_init_system_key ) return 0;
-	
-	return -1;
+	u16 id01,id23,id45,id67;
+	srand(time(NULL) & 0xffff);
+	srand(rand());
+	id01 = 0x0007;
+	id23 = rand();
+	id45 = rand();
+	id67 = id01 ^ id23 ^ id45;
+	BCAS_CARD_ID_GEN[0] = id01 >> 8;
+	BCAS_CARD_ID_GEN[1] = id01 & 0xff;
+	BCAS_CARD_ID_GEN[2] = id23 >> 8;
+	BCAS_CARD_ID_GEN[3] = id23 & 0xff;
+	BCAS_CARD_ID_GEN[4] = id45 >> 8;
+	BCAS_CARD_ID_GEN[5] = id45 & 0xff;
+	BCAS_CARD_ID_GEN[6] = id67 >> 8;
+	BCAS_CARD_ID_GEN[7] = id67 & 0xff;
+	BCAS_CARD_ID = load_be_uint48(BCAS_CARD_ID_GEN);
+
+	return 0;
 }
+
+static int64_t load_be_uint48(uint8_t *p)
+{
+	int i;
+	int64_t r;
+
+	r = p[0];
+	for(i=1;i<6;i++){
+		r <<= 8;
+		r |= p[i];
+	}
+
+	return r;
+}
+
