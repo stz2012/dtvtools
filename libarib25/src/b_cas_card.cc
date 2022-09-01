@@ -170,7 +170,7 @@ static int get_id_b_cas_card(void *bcas, B_CAS_ID *dst)
 		return B_CAS_CARD_ERROR_NOT_INITIALIZED;
 	}
 
-	prv->id.data[0] = load_be_uint48(BCAS_CARD_ID_GEN);
+	prv->id.data = &BCAS_CARD_ID;
 	prv->id.count = 1;
 	memcpy(dst, &(prv->id), sizeof(B_CAS_ID));
 
@@ -267,7 +267,7 @@ static void teardown(B_CAS_CARD_PRIVATE_DATA *prv)
 
 static int init_bcas_param(void)
 {
-	u16 id01,id23,id45,id67;
+	uint16_t id01,id23,id45,id67;
 	srand(time(NULL) & 0xffff);
 	srand(rand());
 	id01 = 0x0007;
@@ -282,7 +282,7 @@ static int init_bcas_param(void)
 	BCAS_CARD_ID_GEN[5] = id45 & 0xff;
 	BCAS_CARD_ID_GEN[6] = id67 >> 8;
 	BCAS_CARD_ID_GEN[7] = id67 & 0xff;
-	BCAS_CARD_ID = load_be_uint48(BCAS_CARD_ID_GEN);
+	BCAS_CARD_ID = load_be_uint48(&BCAS_CARD_ID_GEN[0]);
 
 	return 0;
 }

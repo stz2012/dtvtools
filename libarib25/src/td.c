@@ -41,6 +41,7 @@ static void show_usage();
 static int parse_arg(OPTION *dst, int argc, TCHAR **argv);
 static void test_arib_std_b25(const TCHAR *src, const TCHAR *dst, OPTION *opt);
 static void show_bcas_power_on_control_info(B_CAS_CARD *bcas);
+static void show_bcas_id(B_CAS_CARD *bcas);
 
 int _tmain(int argc, TCHAR **argv)
 {
@@ -237,6 +238,10 @@ static void test_arib_std_b25(const TCHAR *src, const TCHAR *dst, OPTION *opt)
 	if(code < 0){
 		_ftprintf(stderr, _T("error - failed on ARIB_STD_B25::set_b_cas_card() : code=%d\n"), code);
 		goto LAST;
+	}
+
+	if(opt->verbose != 0){
+		show_bcas_id(bcas);
 	}
 
 	dfd = _topen(dst, _O_BINARY|_O_WRONLY|_O_SEQUENTIAL|_O_CREAT|_O_TRUNC, _S_IREAD|_S_IWRITE);
@@ -437,3 +442,16 @@ static void show_bcas_power_on_control_info(B_CAS_CARD *bcas)
 	}
 }
 
+static void show_bcas_id(B_CAS_CARD *bcas)
+{
+	int code;
+	B_CAS_ID id;
+
+	code = bcas->get_id(bcas, &id);
+	if(code < 0){
+		_ftprintf(stderr, _T("error - failed on B_CAS_CARD::get_id() : code=%d\n"), code);
+		return;
+	}
+
+	_ftprintf(stdout, _T("BCAS_ID: 0x%lx\n"), *id.data);
+}
